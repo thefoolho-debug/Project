@@ -1,6 +1,16 @@
 const SUPABASE_URL = "https://kyqeuzyknibkidjgimql.supabase.co";
 const SUPABASE_KEY = "sb_publishable_FyZRa-B1VRGWS_pGW0Ygxw_tbkJTA23";
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const offlineErr = new Error('Could not load the database library. Check the internet connection.');
+const supabaseClient = window.supabase
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+    : {
+        auth: {
+            getSession: async () => ({ data: {}, error: offlineErr }),
+            signOut: async () => ({ error: null }),
+            signInWithPassword: async () => ({ data: {}, error: offlineErr })
+        },
+        functions: { invoke: async () => ({ data: null, error: offlineErr }) }
+    };
 
 const STAGES = {
     Seedling: { dry: 60, wet: 75 },
@@ -709,7 +719,9 @@ function renderSparkline() {
 function renderHistoryChart() {
     if (!$('chart')) return;
 
-    const W = 700, H = 250, L = 38, R = 10, T = 10, B = 26;
+    const box = $('chart').getBoundingClientRect().width || 700;
+    const W = Math.max(300, Math.min(900, Math.round(box))), H = box < 500 ? 220 : 260, L = 38, R = 10, T = 10, B = 26;
+    $('chart').setAttribute('viewBox', `0 0 ${W} ${H}`);
 
     const n = Math.min(STATE.timeframe, STATE.history.length);
     if (n < 2) return;
