@@ -1,0 +1,248 @@
+ <!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Tomato Irrigation Monitoring Dashboard</title>
+<link rel="stylesheet" href="capstone.css">
+</head>
+<body>
+
+<div id="authOverlay" class="auth-modal active">
+  <div class="auth-card">
+    <div class="role-tabs">
+      <button id="tabUserLogin" class="tab-btn active" type="button">User Sign In</button>
+      <button id="tabAdminLogin" class="tab-btn" type="button">Admin Sign In</button>
+    </div>
+
+    <h2 id="loginTitle">User Sign In</h2>
+    <p class="mut" id="loginDesc">Please authenticate to access the tomato monitoring dashboard.</p>
+
+    <div class="field">
+      <label for="authEmail">Email Address</label>
+      <input id="authEmail" type="email" autocomplete="email">
+    </div>
+
+    <div class="field">
+      <label for="authPass">Password</label>
+      <input id="authPass" type="password" autocomplete="current-password">
+    </div>
+
+    <button id="toggleAuthPass" class="btn" type="button">Show</button>
+    <button id="btnLogin" class="btn full" type="button">Sign In</button>
+
+    <p id="authErr" class="auth-err"></p>
+
+    <div class="support-footer">
+      Need help? Contact us:<br>
+      <a href="mailto:pagabriel@paterostechnologicalcollege.edu.ph">pagabriel@paterostechnologicalcollege.edu.ph</a><br>
+      <a href="mailto:phbladera@paterostechnologicalcollege.edu.ph">phbladera@paterostechnologicalcollege.edu.ph</a>
+    </div>
+  </div>
+</div>
+
+<div id="mainDashboard" class="wrap" style="display:none">
+
+  <header>
+    <div>
+      <h1>Tomato Irrigation Monitoring</h1>
+      <small id="dashSubtitle">User Dashboard - Tomato Health Monitoring and Irrigation Status</small>
+    </div>
+    <div class="hr">
+      <span class="chip"><span class="dot"></span><span id="clock">--</span></span>
+      <span class="chip">Signed in: <strong id="who">Administrator only</strong></span>
+      <button id="btnLogout" class="btn" type="button">Log Out</button>
+    </div>
+  </header>
+
+  <div class="grid g3">
+
+    <div class="card">
+      <h2>Soil Moisture Root Zone <span>Live reading</span></h2>
+      <div class="big"><span id="mPct">--</span><small>%</small></div>
+      <div class="meter">
+        <i id="band"></i>
+        <b id="needle"></b>
+      </div>
+      <p class="mut">Raw sensor reading: <span id="mAdc">--</span> ADC</p>
+      <p class="mut">Target band follows the selected tomato growth stage and season.</p>
+    </div>
+
+    <div class="card">
+      <h2>Temperature Surrounding <span>Reference 22-32 C</span></h2>
+      <div class="big"><span id="tVal">--</span><small>C</small></div>
+      <p class="mut">Secondary environmental monitoring only.</p>
+      <p class="mut">Readings above 35 C raise a temperature warning alert.</p>
+    </div>
+
+    <div class="card">
+      <h2>Water Pump and Sprinkler <span>Via relay</span></h2>
+      <div class="big" id="pState">OFF</div>
+      <p class="mut" id="pSub">Standing by</p>
+      <div class="row"><span>Mode</span><strong id="pMode">Automatic</strong></div>
+      <div class="row"><span>Runs in last 24 h</span><strong id="pRuns">0</strong></div>
+      <div class="row"><span>Water time in last 24 h</span><strong id="pMin">0 min</strong></div>
+    </div>
+
+  </div>
+
+  <div class="grid g2">
+
+    <div class="card">
+      <h2>Tomato Condition <span>Watering-related assessment</span></h2>
+      <div class="big"><span id="cond">--</span></div>
+      <p class="mut" id="condSub"></p>
+      <h2 style="margin-top:16px">System Status and Alerts</h2>
+      <ul id="alerts"></ul>
+    </div>
+
+    <div class="card">
+      <h2>Watering Log <span>Most recent runs</span></h2>
+      <button id="exp" class="btn" type="button">Export CSV</button>
+      <p class="mut" id="csvmsg"></p>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Started</th><th>Duration</th><th>Remarks</th></tr>
+          </thead>
+          <tbody id="logb"></tbody>
+        </table>
+      </div>
+      <div id="csvbox" hidden>
+        <textarea id="csv" readonly></textarea>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="card">
+    <h2>Soil Moisture History <span>Pump runs shown in blue</span></h2>
+    <div class="hd">
+      <div class="tog" id="tfs">
+        <button data-t="60" type="button">1 h</button>
+        <button data-t="360" class="on" type="button">6 h</button>
+        <button data-t="1440" type="button">24 h</button>
+      </div>
+    </div>
+    <svg id="chart" viewBox="0 0 700 250" preserveAspectRatio="none"></svg>
+    <svg id="spark" viewBox="0 0 300 50" preserveAspectRatio="none"></svg>
+  </div>
+
+  <div class="card adm-only">
+    <h2>User Accounts <span>Administrator only</span></h2>
+    <p class="lock">Only the administrator can create, deactivate or delete user accounts.</p>
+
+    <div class="grid g3">
+      <div>
+        <label for="nuName">Full Name</label>
+        <input id="nuName" type="text">
+      </div>
+      <div>
+        <label for="nuEmail">Email Address</label>
+        <input id="nuEmail" type="email">
+      </div>
+      <div>
+        <label for="nuPass">Password</label>
+        <input id="nuPass" type="password" minlength="8" autocomplete="new-password">
+      </div>
+    </div>
+
+    <button id="btnCreateUser" class="btn full" type="button">Create User Account</button>
+    <p id="userMsg" class="auth-msg"></p>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Full Name</th><th>Email Address</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="userRows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card adm-only">
+    <h2>Irrigation Settings <span>Administrator</span></h2>
+    <p class="lock">Only the administrator can change settings or control the pump.</p>
+
+    <div class="grid g2">
+      <div>
+        <label for="stage">Growth Stage</label>
+        <select id="stage" class="adm">
+          <option value="Seedling">Seedling</option>
+          <option value="Vegetative">Vegetative</option>
+          <option value="Flowering" selected>Flowering</option>
+          <option value="Fruiting">Fruiting</option>
+        </select>
+
+        <label for="season">Season</label>
+        <select id="season" class="adm">
+          <option value="auto" selected>Auto (by month)</option>
+          <option value="dry">Dry (Jan-May)</option>
+          <option value="wet">Wet (Jun-Dec)</option>
+        </select>
+      </div>
+      <div>
+        <label for="dry">Water when moisture drops to <span id="dryV">50%</span></label>
+        <input id="dry" class="adm" type="range" min="20" max="80" step="1" value="50">
+
+        <label for="wet">Stop watering at <span id="wetV">65%</span></label>
+        <input id="wet" class="adm" type="range" min="30" max="95" step="1" value="65">
+
+        <label for="max">Safety limit per run <span id="maxV">15 min</span></label>
+        <input id="max" class="adm" type="range" min="1" max="60" step="1" value="15">
+      </div>
+    </div>
+
+    <label>Pump Control</label>
+    <div class="seg" id="modes">
+      <button data-m="AUTO" class="on adm" type="button">Automatic</button>
+      <button data-m="ON" class="adm" type="button">Manual On</button>
+      <button data-m="OFF" class="adm" type="button">Manual Off</button>
+    </div>
+
+    <button id="saveSettings" class="btn full adm" type="button">Save Irrigation Settings</button>
+    <p id="settingsMsg" class="auth-msg"></p>
+
+    <p class="mut" style="margin-top:12px">
+      Stage presets are starting values. Confirm final operating values through prototype testing
+      and the Buting Elementary School consultation.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Need Configuration Adjustments? <span>Support</span></h2>
+    <p class="mut">
+      Users can monitor the system but cannot change irrigation thresholds or manually control the pump.
+      Contact the administrative team for configuration or troubleshooting.
+    </p>
+    <div class="row">
+      <span>Lead Technical Support</span>
+      <a href="mailto:pagabriel@paterostechnologicalcollege.edu.ph">pagabriel@paterostechnologicalcollege.edu.ph</a>
+    </div>
+    <div class="row">
+      <span>System Administrator</span>
+      <a href="mailto:phbladera@paterostechnologicalcollege.edu.ph">phbladera@paterostechnologicalcollege.edu.ph</a>
+    </div>
+  </div>
+
+  <div class="card adm-only">
+    <h2>Hardware Check <span id="hwT">Not run yet</span></h2>
+    <div id="hw"></div>
+    <button id="hwBtn" class="btn" type="button">Run Pre-operation Check</button>
+  </div>
+
+  <div class="card">
+    <h2>System Note</h2>
+    <p class="mut">
+      Dashboard demo: readings are simulated when live Arduino readings are not available.
+      In the physical prototype, the Arduino UNO reads the sensors and applies the irrigation logic
+      locally, activates the relay, and controls the water pump and sprinkler.
+    </p>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="capstone.js"></script>
+</body>
+</html>
