@@ -1,5 +1,4 @@
-// live.js - real Arduino UNO data over USB (Web Serial), no fake data, data-age indicator, safer alerts.
-// Loaded after capstone.js. Sources: usb (live UNO), db (saved readings), demo (simulated, admin only), none.
+
 (() => {
 const L = { port: null, writer: null, reader: null, lastSave: 0, first: true, touch: 0, lastHist: 0 };
 const STG = ['Seedling', 'Vegetative', 'Flowering', 'Fruiting'], SEA = ['auto', 'dry', 'wet'];
