@@ -183,16 +183,6 @@ header small {
 
 .mut { color: var(--mut); font-size: 12.5px; }
 
-.pill {
-  display: inline-block;
-  border-radius: 99px;
-  padding: 2px 10px;
-  font-size: 12px;
-  font-weight: 700;
-  border: 1px solid var(--line);
-  background: var(--soft);
-}
-
 .ok { color: var(--green); }
 .warn { color: var(--amber); }
 .bad { color: var(--red); }
@@ -493,13 +483,28 @@ ul { margin: 0; padding-left: 18px; }
   cursor: pointer;
 }
 
-@media (max-width: 420px) {
-  .g2 { grid-template-columns: 1fr; }
+.btn.full { display: block; width: 100%; }
+
+.chip.stale {
+  background: #b4600a66;
+  border-color: #f0a04b;
 }
 
-.btn.full { display: block; width: 100%; }
-.chip.stale { background: #b4600a66; border-color: #f0a04b; }
+.card .tog { background: var(--soft); }
+.card .tog button { color: var(--mut); }
+
+.card .tog button.on {
+  background: var(--green);
+  color: #fff;
+}
+
 .sys-modal-badge.CRITICAL { color: var(--red); }
 .sys-modal-badge.WARNING { color: var(--amber); }
 .sys-modal-badge.INFO { color: var(--sky); }
-@media (max-width: 600px) { body { padding: 10px; } .big { font-size: 34px; } .card { padding: 14px; } }
+
+@media (max-width: 600px) {
+  body { padding: 10px; }
+  .big { font-size: 34px; }
+  .card { padding: 14px; }
+  .g2 { grid-template-columns: 1fr; }
+}

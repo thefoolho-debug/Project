@@ -163,8 +163,8 @@ const getActiveSeason = () => {
     return new Date().getMonth() < 5 ? 'dry' : 'wet';
 };
 
-const computeAdc = moisturePct =>
-    Math.round(850 - (Math.max(0, Math.min(100, moisturePct)) * 5.5));
+const parseDbTime = value =>
+    new Date(/[zZ]$|[+-]\d\d(:?\d\d)?$/.test(value) ? value : `${value}Z`).getTime();
 
 function applyPresetThresholds() {
     const base = STAGES[STATE.stage];
@@ -503,7 +503,7 @@ async function fetchLatestTelemetry() {
         if (Array.isArray(logs)) {
             STATE.activityLogs = logs.map(item => ({
                 id: item.activity_id,
-                ts: new Date(item.timestamp).getTime(),
+                ts: parseDbTime(item.timestamp),
                 dur: Number(item.watering_duration || 0),
                 rm: item.operational_remarks || 'System operation'
             }));
@@ -556,35 +556,6 @@ async function saveSettingsToSupabase() {
     return true;
 }
 
-async function logWateringEventToSupabase(status, duration, remarks) {
-    const payload = [{
-        pump_id: STATE.currentPumpId,
-        admin_id: STATE.role === 'A' ? (STATE.userAccount?.id ?? null) : null,
-        setting_id: STATE.currentSettingId,
-        pump_status: status,
-        watering_duration: Math.max(0, Math.round(duration)),
-        operational_remarks: remarks
-    }];
-
-    try {
-        const saved = await supabaseFetch(
-            "watering_activity",
-            { method: "POST", body: JSON.stringify(payload) }
-        );
-
-        if (Array.isArray(saved) && saved[0]) {
-            STATE.activityLogs.unshift({
-                id: saved[0].activity_id,
-                ts: new Date(saved[0].timestamp).getTime(),
-                dur: Number(saved[0].watering_duration || 0),
-                rm: saved[0].operational_remarks || remarks
-            });
-        }
-    } catch (err) {
-        console.error("Watering log error:", err);
-    }
-}
-
 async function logSystemAlertToSupabase(type, message, severity) {
     const key = `${type}:${message}`;
     const last = STATE.alertCooldowns[key] || 0;
@@ -630,16 +601,6 @@ function evaluateIrrigationLogic(advance = true) {
 
     if (STATE.pumpActive && !previousState) {
         STATE.currentRunDuration = 0;
-    }
-
-    if (previousState && !STATE.pumpActive) {
-        const remark = STATE.controlMode !== 'AUTO'
-            ? 'Manual override (administrator)'
-            : m >= STATE.wetThreshold
-                ? 'Wet threshold reached'
-                : 'Safety limit reached';
-
-        logWateringEventToSupabase('OFF', STATE.currentRunDuration, remark);
     }
 
     if (advance) {
@@ -788,7 +749,7 @@ function renderDashboard() {
 
     if ($('clock')) $('clock').textContent = formatTimestamp(Date.now(), true);
     if ($('mPct')) $('mPct').textContent = m.toFixed(1);
-    if ($('mAdc')) $('mAdc').textContent = computeAdc(m);
+    if ($('mAdc')) $('mAdc').textContent = (STATE.rawAdc ?? '--');
 
     if ($('band')) {
         $('band').style.cssText =
@@ -1064,21 +1025,7 @@ function bindUIEvents() {
     });
 }
 
-function seedDemoHistory() {
-    const now = Date.now();
-
-    for (let i = 360; i >= 0; i--) {
-        STATE.history.push({
-            ts: now - i * 60000,
-            m: 50 + Math.sin(i / 10) * 8,
-            t: 28 + Math.cos(i / 15) * 3,
-            p: false
-        });
-    }
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
-    seedDemoHistory();
     applyPresetThresholds();
     bindUIEvents();
     renderDashboard();
