@@ -270,9 +270,11 @@
         }
 
         if (STATE.source === 'db' && stale) {
-            if ($('pState')) $('pState').textContent = '--';
-            if ($('pSub')) $('pSub').textContent = 'No recent data from the Arduino';
-        }
+    if ($('pState')) {$('pState').textContent = STATE.pumpActive ? 'ON' : 'OFF';
+        $('pState').className = `big ${STATE.pumpActive ? 'inf' : ''}`;
+    }
+    if ($('pSub'))$('pSub').textContent = 'Last saved status (Arduino offline)';
+}
     };
 
     function sendToArduino(text) {
