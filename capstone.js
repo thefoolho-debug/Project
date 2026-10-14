@@ -884,33 +884,19 @@ function runHardwareCheck() {
     );
 }
 
-function exportCsv() {
-    const rows = [
-        ['activity_id', 'timestamp', 'pump_id', 'pump_status', 'watering_duration_min', 'operational_remarks'],
-        ...STATE.activityLogs.map(l => [
-            l.id,
-            new Date(l.ts).toISOString(),
-            STATE.currentPumpId,
-            'OFF',
-            l.dur,
-            l.rm
-        ])
-    ];
-
-    const csvRows = rows.map(row =>
+function downloadCsv(filename, rows) {
+    const text = rows.map(row =>
         row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')
     ).join('\n');
 
-    if ($('csv')) $('csv').value = csvRows;
+    if ($('csv')) $('csv').value = text;
     if ($('csvbox')) $('csvbox').hidden = false;
-    if ($('csvmsg')) $('csvmsg').textContent = 'Watering activity CSV prepared.';
 
     try {
-        const blob = new Blob([csvRows], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
 
-        link.href = URL.createObjectURL(blob);
-        link.download = `watering-activity-log-${Date.now()}.csv`;
+        link.href = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8;' }));
+        link.download = filename;
 
         document.body.appendChild(link);
         link.click();
@@ -919,6 +905,89 @@ function exportCsv() {
         setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     } catch (err) {
         console.error('CSV export failed:', err);
+    }
+}
+
+function setCsvMessage(text) {
+    if ($('csvmsg')) $('csvmsg').textContent = text;
+}
+
+async function exportCsv() {
+    setCsvMessage('Getting watering runs from the database...');
+
+    try {
+        const runs = await fetchAllRows('watering_activity?select=*&order=timestamp.asc');
+
+        if (runs.length === 0) {
+            setCsvMessage('No watering runs are saved in the database yet. Use Export Readings CSV for the moisture and temperature data.');
+            return;
+        }
+
+        const rows = [['activity_id', 'timestamp_utc', 'local_time', 'pump_id', 'pump_status', 'watering_duration_min', 'operational_remarks']];
+
+        runs.forEach(run => {
+            const ts = parseDbTime(run.timestamp);
+            rows.push([
+                run.activity_id,
+                new Date(ts).toISOString(),
+                formatTimestamp(ts, true),
+                run.pump_id,
+                run.pump_status,
+                run.watering_duration,
+                run.operational_remarks
+            ]);
+        });
+
+        downloadCsv('watering-activity-log-' + Date.now() + '.csv', rows);
+        setCsvMessage(runs.length + ' watering runs exported.');
+    } catch (err) {
+        setCsvMessage('Export failed: ' + err.message);
+    }
+}
+
+async function fetchAllRows(endpoint) {
+    const rows = [];
+
+    for (let offset = 0; offset < 50000; offset += 1000) {
+        const page = await supabaseFetch(`${endpoint}&limit=1000&offset=${offset}`);
+        rows.push(...page);
+        if (page.length < 1000) break;
+    }
+
+    return rows;
+}
+
+async function exportReadingsCsv() {
+    setCsvMessage('Preparing readings...');
+
+    try {
+        const [sensors, temperatures] = await Promise.all([
+            fetchAllRows('sensor_data?select=sensor_id,timestamp,soil_moisture_value,raw_adc&order=timestamp.asc'),
+            fetchAllRows('temperature_data?select=sensor_id,temperature_value&order=sensor_id.asc')
+        ]);
+
+        if (!sensors.length) {
+            setCsvMessage('No readings found. Connect the Arduino as administrator to start saving, or check that this account can read the data tables.');
+            return;
+        }
+
+        const tempBySensor = new Map(temperatures.map(row => [row.sensor_id, row.temperature_value]));
+
+        downloadCsv(`sensor-readings-${Date.now()}.csv`, [
+            ['sensor_id', 'timestamp_utc', 'local_time', 'soil_moisture_pct', 'raw_adc', 'temperature_c'],
+            ...sensors.map(row => [
+                row.sensor_id,
+                new Date(parseDbTime(row.timestamp)).toISOString(),
+                formatTimestamp(parseDbTime(row.timestamp), true),
+                row.soil_moisture_value,
+                row.raw_adc,
+                tempBySensor.get(row.sensor_id)
+            ])
+        ]);
+
+        setCsvMessage(`${sensors.length} readings exported.`);
+    } catch (err) {
+        setCsvMessage(`Export failed: ${err.message}`);
     }
 }
 
@@ -1011,6 +1080,7 @@ function bindUIEvents() {
     $('saveSettings')?.addEventListener('click', saveSettingsToSupabase);
     $('hwBtn')?.addEventListener('click', runHardwareCheck);
     $('exp')?.addEventListener('click', exportCsv);
+    $('expReadings')?.addEventListener('click', exportReadingsCsv);
 
     document.querySelectorAll('#tfs button').forEach(btn => {
         btn.addEventListener('click', () => {

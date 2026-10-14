@@ -74,6 +74,8 @@
       <div class="big"><span id="tVal">--</span><small>C</small></div>
       <p class="mut">Secondary environmental monitoring only.</p>
       <p class="mut">Readings above 35 C raise a temperature warning alert.</p>
+      <svg id="spark" viewBox="0 0 300 50"></svg>
+      <p class="mut">Temperature trend, last 6 hours</p>
     </div>
 
     <div class="card">
@@ -99,7 +101,8 @@
 
     <div class="card">
       <h2>Watering Log <span>Most recent runs</span></h2>
-      <button id="exp" class="btn" type="button">Export CSV</button>
+      <button id="exp" class="btn" type="button">Export Watering CSV</button>
+      <button id="expReadings" class="btn" type="button">Export Readings CSV</button>
       <p class="mut" id="csvmsg"></p>
       <div class="scroll">
         <table>
@@ -126,7 +129,6 @@
       </div>
     </div>
     <svg id="chart" viewBox="0 0 700 250"></svg>
-    <svg id="spark" viewBox="0 0 300 50"></svg>
   </div>
 
   <div class="card adm-only">
