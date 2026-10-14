@@ -269,7 +269,7 @@
             });
         }
 
-        if (STATE.source === 'db' && stale) {
+if (STATE.source === 'db' && stale) {
     if ($('pState')) {$('pState').textContent = STATE.pumpActive ? 'ON' : 'OFF';
         $('pState').className = `big ${STATE.pumpActive ? 'inf' : ''}`;
     }
