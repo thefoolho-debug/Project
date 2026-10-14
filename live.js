@@ -1,5 +1,5 @@
 (function () {
-    const SAVE_EVERY = 15000;
+    const SAVE_EVERY = 1000;
     const STALE_AFTER = 60000;
     const ALERT_PAUSE = 300000;
 
