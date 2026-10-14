@@ -15,6 +15,9 @@
     let lastHistoryTime = 0;
     let lastCommandTime = 0;
     const lastAlertTime = {};
+    let liveChannel = null;
+    let liveReady = false;
+    let liveRetryAt = 0;
 
     STATE.source = 'none';
     STATE.lastDataTs = 0;
@@ -49,7 +52,7 @@
 
     const originalShowAlert = window.showCenterAlert;
     window.showCenterAlert = function (title, message, severity) {
-        const dataIsFresh = STATE.source === 'usb' ||
+        const dataIsFresh = STATE.source === 'usb' || STATE.source === 'live' ||
             (STATE.source === 'db' && Date.now() - STATE.lastDataTs < ALERT_PAUSE);
         const key = title + message.slice(0, 40);
 
@@ -59,6 +62,94 @@
         lastAlertTime[key] = Date.now();
         originalShowAlert(title.replace(/^IoT /, 'System '), message, severity);
     };
+
+    async function startLiveChannel() {
+        if (liveChannel || !STATE.role) return;
+        if (Date.now() < liveRetryAt) return;
+        if (typeof supabaseClient.channel !== 'function') return;
+
+        try {
+            if (supabaseClient.realtime && typeof supabaseClient.realtime.setAuth === 'function') {
+                await supabaseClient.realtime.setAuth();
+            }
+        } catch (err) {
+            console.warn('Realtime auth failed:', err.message);
+        }
+
+        const channel = supabaseClient.channel('hanggang-bunga-live', { config: { private: true } });
+        liveChannel = channel;
+
+        channel.on('broadcast', { event: 'reading' }, message => {
+            handleLiveReading(message.payload);
+        });
+
+        channel.subscribe(status => {
+            if (liveChannel !== channel) return;
+            liveReady = status === 'SUBSCRIBED';
+
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                console.warn('Live channel status:', status);
+                liveChannel = null;
+                liveRetryAt = Date.now() + 60000;
+                supabaseClient.removeChannel(channel);
+            }
+        });
+    }
+
+    function handleLiveReading(data) {
+        if (STATE.role === 'A') return;
+
+        STATE.source = 'live';
+        STATE.lastDataTs = Date.now();
+        STATE.currentMoisture = Number(data.moisture);
+        STATE.rawAdc = Number(data.adc);
+        STATE.currentTemp = Number(data.temp);
+        STATE.pumpActive = data.pump === true;
+        STATE.controlMode = data.mode;
+        STATE.currentRunDuration = Number(data.run);
+        STATE.dryThreshold = Number(data.dry);
+        STATE.wetThreshold = Number(data.wet);
+        STATE.maxDuration = Number(data.max);
+        STATE.stage = data.stage;
+        STATE.season = data.season;
+        syncSettingsToUI();
+
+        if (Date.now() - lastHistoryTime > 59000) {
+            lastHistoryTime = Date.now();
+            STATE.history.push({
+                ts: Date.now(),
+                m: STATE.currentMoisture,
+                t: STATE.currentTemp,
+                p: STATE.pumpActive
+            });
+            if (STATE.history.length > 1440) STATE.history.shift();
+        }
+
+        checkAlertConditions();
+        renderDashboard();
+    }
+
+    function broadcastReading() {
+        if (!liveChannel || !liveReady || STATE.role !== 'A') return;
+
+        liveChannel.send({
+            type: 'broadcast',
+            event: 'reading',
+            payload: {
+                moisture: STATE.currentMoisture,
+                adc: STATE.rawAdc,
+                temp: STATE.currentTemp,
+                pump: STATE.pumpActive,
+                mode: STATE.controlMode,
+                run: STATE.currentRunDuration,
+                dry: STATE.dryThreshold,
+                wet: STATE.wetThreshold,
+                max: STATE.maxDuration,
+                stage: STATE.stage,
+                season: STATE.season
+            }
+        });
+    }
 
     async function loadSavedReadings() {
         try {
@@ -129,9 +220,12 @@
             season: STATE.season
         };
 
+        await startLiveChannel();
         await originalFetchTelemetry();
 
-        if (STATE.source === 'usb' || STATE.source === 'demo') {
+        const liveIsFresh = STATE.source === 'live' && Date.now() - STATE.lastDataTs < 5000;
+
+        if (STATE.source === 'usb' || STATE.source === 'demo' || liveIsFresh) {
             Object.assign(STATE, keep);
             syncSettingsToUI();
         } else {
@@ -152,6 +246,10 @@
         if (STATE.source === 'usb') {
             text = 'Live from Arduino UNO';
             stale = false;
+        } else if (STATE.source === 'live') {
+            text = 'Live from Arduino UNO';
+            stale = age > 5000;
+            if (stale) text += ' (connection lost)';
         } else if (STATE.source === 'demo') {
             text = 'DEMO DATA (simulated)';
         } else if (STATE.source === 'db') {
@@ -318,6 +416,7 @@
 
         checkAlertConditions();
         saveReading();
+        broadcastReading();
         renderDashboard();
     }
 
