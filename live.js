@@ -1,6 +1,6 @@
 (function () {
-    const SAVE_EVERY = 30000;
-    const STALE_AFTER = 180000;
+    const SAVE_EVERY = 15000;
+    const STALE_AFTER = 60000;
     const ALERT_PAUSE = 300000;
 
     const STAGE_NAMES = ['Seedling', 'Vegetative', 'Flowering', 'Fruiting'];
@@ -63,7 +63,7 @@
     async function loadSavedReadings() {
         try {
             const sensors = await supabaseFetch(
-                'sensor_data?select=sensor_id,timestamp,soil_moisture_value,raw_adc&order=timestamp.desc&limit=1500'
+                'sensor_data?select=sensor_id,timestamp,soil_moisture_value,raw_adc,pump_on&order=timestamp.desc&limit=1500'
             );
 
             if (!Array.isArray(sensors) || sensors.length === 0) {
@@ -93,7 +93,8 @@
                 if (ts - lastTs < 55000) return;
                 lastTs = ts;
 
-                const pumpWasOn = STATE.activityLogs.some(run => ts <= run.ts && ts >= run.ts - run.dur * 60000);
+                const pumpWasOn = row.pump_on === true ||
+                    STATE.activityLogs.some(run => ts <= run.ts && ts >= run.ts - run.dur * 60000);
                 const temp = tempBySensor.has(row.sensor_id) ? tempBySensor.get(row.sensor_id) : STATE.currentTemp;
 
                 STATE.history.push({
@@ -110,6 +111,7 @@
             STATE.rawAdc = sensors[sensors.length - 1].raw_adc;
             STATE.currentMoisture = latest.m;
             STATE.currentTemp = latest.t;
+            STATE.pumpActive = sensors[sensors.length - 1].pump_on === true;
         } catch (err) {
             console.error('Saved readings error:', err);
         }
@@ -169,9 +171,9 @@
             });
         }
 
-        if (STATE.source === 'db') {
+        if (STATE.source === 'db' && stale) {
             if ($('pState')) $('pState').textContent = '--';
-            if ($('pSub')) $('pSub').textContent = 'Live pump state needs the Arduino connection';
+            if ($('pSub')) $('pSub').textContent = 'No recent data from the Arduino';
         }
     };
 
@@ -216,7 +218,8 @@
                 method: 'POST',
                 body: JSON.stringify([{
                     soil_moisture_value: Number(STATE.currentMoisture.toFixed(1)),
-                    raw_adc: STATE.rawAdc
+                    raw_adc: STATE.rawAdc,
+                    pump_on: STATE.pumpActive
                 }])
             });
 
@@ -233,7 +236,11 @@
 
             setNote('Live, saved to database');
         } catch (err) {
-            setNote('Database offline. The SD card keeps logging.');
+            if (err.status) {
+                setNote('Database refused the data: ' + err.message);
+            } else {
+                setNote('Database offline. The SD card keeps logging.');
+            }
         }
     }
 
